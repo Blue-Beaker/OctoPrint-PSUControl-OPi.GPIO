@@ -7,7 +7,7 @@ __copyright__ = "Copyright (C) 2021 Shawn Bruce - Released under terms of the AG
 
 import octoprint.plugin
 
-class PSUControl_RPiGPIO(octoprint.plugin.StartupPlugin,
+class PSUControl_OPiGPIO(octoprint.plugin.StartupPlugin,
                          octoprint.plugin.RestartNeedingPlugin,
                          octoprint.plugin.TemplatePlugin,
                          octoprint.plugin.SettingsPlugin):
@@ -15,7 +15,7 @@ class PSUControl_RPiGPIO(octoprint.plugin.StartupPlugin,
     def __init__(self):
         try:
             global GPIO
-            import RPi.GPIO as GPIO
+            import OPi.GPIO as GPIO
             self._hasGPIO = True
         except (ImportError, RuntimeError):
             self._hasGPIO = False
@@ -32,9 +32,9 @@ class PSUControl_RPiGPIO(octoprint.plugin.StartupPlugin,
     def get_settings_defaults(self):
         return dict(
             GPIOMode = 'BOARD',
-            onoffGPIOPin = 0,
+            onoffGPIOPin = '',
             invertonoffGPIOPin = False,
-            senseGPIOPin = 0,
+            senseGPIOPin = '',
             invertsenseGPIOPin = False,
             senseGPIOPinPUD = ''
         )
@@ -70,48 +70,50 @@ class PSUControl_RPiGPIO(octoprint.plugin.StartupPlugin,
         psucontrol_helpers['register_plugin'](self)
 
 
-    def _gpio_board_to_bcm(self, pin):
-        if GPIO.RPI_REVISION == 1:
-            pin_to_gpio = self._pin_to_gpio_rev1
-        elif GPIO.RPI_REVISION == 2:
-            pin_to_gpio = self._pin_to_gpio_rev2
-        else:
-            pin_to_gpio = self._pin_to_gpio_rev3
-
-        return pin_to_gpio[pin]
-
-
-    def _gpio_bcm_to_board(self, pin):
-        if GPIO.RPI_REVISION == 1:
-            pin_to_gpio = self._pin_to_gpio_rev1
-        elif GPIO.RPI_REVISION == 2:
-            pin_to_gpio = self._pin_to_gpio_rev2
-        else:
-            pin_to_gpio = self._pin_to_gpio_rev3
-
-        return pin_to_gpio.index(pin)
-
+#   def _gpio_board_to_bcm(self, pin):
+#       if GPIO.RPI_REVISION == 1:
+#           pin_to_gpio = self._pin_to_gpio_rev1
+#       elif GPIO.RPI_REVISION == 2:
+#           pin_to_gpio = self._pin_to_gpio_rev2
+#       else:
+#           pin_to_gpio = self._pin_to_gpio_rev3
+#
+#       return pin_to_gpio[pin]
+#
+#
+#   def _gpio_bcm_to_board(self, pin):
+#       if GPIO.RPI_REVISION == 1:
+#           pin_to_gpio = self._pin_to_gpio_rev1
+#       elif GPIO.RPI_REVISION == 2:
+#           pin_to_gpio = self._pin_to_gpio_rev2
+#       else:
+#           pin_to_gpio = self._pin_to_gpio_rev3
+#
+#       return pin_to_gpio.index(pin)
 
     def _gpio_get_pin(self, pin):
         if (GPIO.getmode() == GPIO.BOARD and self.config['GPIOMode'] == 'BOARD') or (GPIO.getmode() == GPIO.BCM and self.config['GPIOMode'] == 'BCM'):
+            return int(pin)
+        elif (GPIO.getmode() == GPIO.SUNXI and self.config['GPIOMode'] == 'SUNXI'):
             return pin
-        elif GPIO.getmode() == GPIO.BOARD and self.config['GPIOMode'] == 'BCM':
-            return self._gpio_bcm_to_board(pin)
-        elif GPIO.getmode() == GPIO.BCM and self.config['GPIOMode'] == 'BOARD':
-            return self._gpio_board_to_bcm(pin)
+#        elif GPIO.getmode() == GPIO.BOARD and self.config['GPIOMode'] == 'BCM':
+#            return self._gpio_bcm_to_board(pin)
+#        elif GPIO.getmode() == GPIO.BCM and self.config['GPIOMode'] == 'BOARD':
+#            return self._gpio_board_to_bcm(pin)
         else:
+            self._logger.error("Pin number conversion is not implemented, do not set alternate mode in other plugins!")
             return 0
 
 
     def configure_gpio(self):
         if not self._hasGPIO:
-            self._logger.error("Error importing RPi.GPIO.")
+            self._logger.error("Error importing OPi.GPIO.")
             return
 
-        self._logger.info("Running RPi.GPIO version {}".format(GPIO.VERSION))
-        if GPIO.VERSION < "0.6":
-            self._logger.error("RPi.GPIO version 0.6.0 or greater required.")
-            return
+#        self._logger.info("Running OPi.GPIO version {}".format(GPIO.VERSION))
+#        if GPIO.VERSION < "0.5.2":
+#            self._logger.error("OPi.GPIO version 0.5.2 or greater required.")
+#            return
 
         GPIO.setwarnings(False)
 
@@ -120,10 +122,12 @@ class PSUControl_RPiGPIO(octoprint.plugin.StartupPlugin,
                 GPIO.setmode(GPIO.BOARD)
             elif self.config['GPIOMode'] == 'BCM':
                 GPIO.setmode(GPIO.BCM)
+            elif self.config['GPIOMode'] == 'SUNXI':
+                GPIO.setmode(GPIO.SUNXI)
             else:
                 return
 
-        if self.config['senseGPIOPin'] > 0:
+        if self.config['senseGPIOPin'] != '':
             self._logger.info("Configuring sensing GPIO for pin {}".format(self.config['senseGPIOPin']))
 
             if self.config['senseGPIOPinPUD'] == 'PULL_UP':
@@ -141,7 +145,7 @@ class PSUControl_RPiGPIO(octoprint.plugin.StartupPlugin,
                     "Exception while setting up GPIO pin {}".format(self.config['senseGPIOPin'])
                 )
 
-        if self.config['onoffGPIOPin'] > 0:
+        if self.config['onoffGPIOPin'] != '':
             self._logger.info("Configuring switching GPIO for pin {}".format(self.config['onoffGPIOPin']))
             try:
                 if not self.config['invertonoffGPIOPin']:
@@ -172,7 +176,7 @@ class PSUControl_RPiGPIO(octoprint.plugin.StartupPlugin,
 
 
     def turn_psu_on(self):
-        if self.config['onoffGPIOPin'] <= 0:
+        if self.config['onoffGPIOPin'] == '':
             self._logger.warning("Switching is not enabled")
             return
 
@@ -189,7 +193,7 @@ class PSUControl_RPiGPIO(octoprint.plugin.StartupPlugin,
 
 
     def turn_psu_off(self):
-        if self.config['onoffGPIOPin'] <= 0:
+        if self.config['onoffGPIOPin'] == '':
             self._logger.warning("Switching is not enabled")
             return
 
@@ -206,7 +210,7 @@ class PSUControl_RPiGPIO(octoprint.plugin.StartupPlugin,
 
 
     def get_psu_state(self):
-        if self.config['senseGPIOPin'] <= 0:
+        if self.config['senseGPIOPin'] == '':
             self._logger.warning("Sensing is not enabled")
             return 0
 
@@ -249,18 +253,18 @@ class PSUControl_RPiGPIO(octoprint.plugin.StartupPlugin,
 
     def get_update_information(self):
         return dict(
-            psucontrol_rpigpio=dict(
-                displayName="PSU Control - RPi.GPIO",
+            psucontrol_opigpio=dict(
+                displayName="PSU Control - OPi.GPIO",
                 displayVersion=self._plugin_version,
 
                 # version check: github repository
                 type="github_release",
-                user="kantlivelong",
-                repo="OctoPrint-PSUControl-RPiGPIO",
+                user="Blue-Beaker",
+                repo="OctoPrint-PSUControl-OPi.GPIO",
                 current=self._plugin_version,
 
                 # update method: pip w/ dependency links
-                pip="https://github.com/kantlivelong/OctoPrint-PSUControl-RPiGPIO/archive/{target_version}.zip"
+                pip="https://github.com/Blue-Beaker/OctoPrint-PSUControl-OPi.GPIO/archive/{target_version}.zip"
             )
         )
 
@@ -273,12 +277,12 @@ class PSUControl_RPiGPIO(octoprint.plugin.StartupPlugin,
         pass
     # >
 
-__plugin_name__ = "PSU Control - RPi.GPIO"
+__plugin_name__ = "PSU Control - OPi.GPIO"
 __plugin_pythoncompat__ = ">=2.7,<4"
 
 def __plugin_load__():
     global __plugin_implementation__
-    __plugin_implementation__ = PSUControl_RPiGPIO()
+    __plugin_implementation__ = PSUControl_OPiGPIO()
 
     global __plugin_hooks__
     __plugin_hooks__ = {

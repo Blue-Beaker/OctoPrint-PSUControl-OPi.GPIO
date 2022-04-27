@@ -3,14 +3,14 @@ import setuptools
 
 ########################################################################################################################
 
-plugin_identifier = "psucontrol_rpigpio"
+plugin_identifier = "psucontrol_opigpio"
 plugin_package = "octoprint_%s" % plugin_identifier
-plugin_name = "OctoPrint-PSUControl-RPiGPIO"
+plugin_name = "OctoPrint-PSUControl-OPiGPIO"
 plugin_version = "1.0.4"
-plugin_description = "Adds legacy RPi.GPIO to OctoPrint-PSUControl as a sub-plugin"
-plugin_author = "Shawn Bruce"
-plugin_author_email = "kantlivelong@gmail.com"
-plugin_url = "https://github.com/kantlivelong/OctoPrint-PSUControl-RPiGPIO"
+plugin_description = "Adds Opi.GPIO to OctoPrint-PSUControl as a sub-plugin, Forked from OctoPrint-PSUControl-RpiGPIO"
+plugin_author = "Original by Shawn Bruce, Fork by Blue_Beaker"
+plugin_author_email = "kantlivelong@gmail.com(Shawn Bruce)"
+plugin_url = "https://github.com/Blue-Beaker/OctoPrint-PSUControl-OPi.GPIO"
 plugin_license = "AGPLv3"
 plugin_additional_data = []
 
